@@ -114,6 +114,7 @@ def main(args):
     print('**Initializing Start Tree**\n')
     if args.start_tree_file:
         current_tree = MasterTree(tree=Tree(args.start_tree_file, format=1))
+        current_tree.set_node_names()
         starting_score = getTotalRecCost(ranger_args, current_tree.write(), gene_trees_path, weights, temp_dir)
     else:
         # get taxa names from gene trees
@@ -131,7 +132,7 @@ def main(args):
             starting_score = getTotalRecCost(ranger_args, current_tree.write(), gene_trees_path, weights, temp_dir)
         else:
             current_tree, starting_score = additive_start_tree(gene_trees_path, ranger_args, weights, args.unrooted, temp_dir, args.num_cores)
-    current_tree.save(os.path.join(part_tree_dir, '0tree.nwk'), format=8)
+    current_tree.save(os.path.join(part_tree_dir, '0tree.nwk'))
 
     print('**Tree search**\n')
     print('\tIteration\tScore\tNum optimal trees\n')
@@ -153,7 +154,7 @@ def main(args):
         else:
             optimal_trees, min_score = greedySPRsearch(current_tree, prev_val, ranger_args, gene_trees_path, args.num_cores, weights, temp_dir)
 
-        index = random.randint(0, len(optimal_trees)-1)
+        index = np.random.randint(len(optimal_trees))
         print(f'\t{it}\t{min_score}\t{len(optimal_trees)}')
         with open(out_handle, 'a+') as f:
             cur_time = time.strftime('%X %x %Z')
@@ -163,14 +164,13 @@ def main(args):
         elif args.max_iter != -1 and it >= args.max_iter:
             condition_reached = True
         current_tree = MasterTree(tree=Tree(optimal_trees[index], format=8))
-        current_tree.save(os.path.join(part_tree_dir, f'{it}tree.nwk'), format=8)
+        current_tree.save(os.path.join(part_tree_dir, f'{it}tree.nwk'))
         prev_val = min_score
         it += 1
 
     print('')
     current_tree.print_newick()
-    current_tree.save(os.path.join(args.output_dir, 'final_tree.nwk'), format=8)
-    #current_tree.save(log_file_path)
+    current_tree.save(os.path.join(args.output_dir, 'final_tree.nwk'))
 
     shutil.rmtree(temp_dir)
     end_time = time.time() - start_time

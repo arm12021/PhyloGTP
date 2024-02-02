@@ -106,7 +106,7 @@ def additive_start_tree(gene_trees_path, ranger_args, weights, unrooted, temp_di
     
         min_score = min(scores)
         optimal_trees = [neighborhood[i] for i in range(len(scores)) if scores[i] == min_score]
-        index = random.randint(0, len(optimal_trees)-1)
+        index = np.random.randint(len(optimal_trees))
         mt = MasterTree(tree=Tree(optimal_trees[index], format=8))
     
     return mt, min_score
