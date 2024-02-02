@@ -117,7 +117,7 @@ def buildRandomStartingTree(names):
 # Makes system call to ranger and returns DTL score
 def callRanger(ranger_args, temp_path):
     # make system call to ranger
-    params = ['./' + ranger_args['path'], '-i', temp_path, '-D', ranger_args['D'], '-T', ranger_args['T'], '-L', ranger_args['L'], '-q', '-s']
+    params = [ranger_args['path'], '-i', temp_path, '-D', ranger_args['D'], '-T', ranger_args['T'], '-L', ranger_args['L'], '-q', '-s']
     raw_out = subprocess.run(params, check=True, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL, universal_newlines=True)
     #raw_out = subprocess.run(params, check=True, stdout=subprocess.PIPE, universal_newlines=True)
     ran_out = raw_out.stdout.strip()
@@ -125,7 +125,7 @@ def callRanger(ranger_args, temp_path):
     return rec_cost
 
 def callRangerWeighted(ranger_args, temp_path, weights):
-    params = ['./' + ranger_args['path'], '-i', temp_path, '-D', ranger_args['D'], '-T', ranger_args['T'], '-L', ranger_args['L'], '-q']
+    params = [ranger_args['path'], '-i', temp_path, '-D', ranger_args['D'], '-T', ranger_args['T'], '-L', ranger_args['L'], '-q']
     raw_out = subprocess.run(params, check=True, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL, universal_newlines=True)
     ran_out = raw_out.stdout.strip().split('\n')
     costs = []

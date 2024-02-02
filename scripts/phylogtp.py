@@ -1,5 +1,7 @@
 import argparse
 import os
+from pathlib import Path
+from sys import platform
 import time
 from ete3 import Tree
 import shutil
@@ -12,7 +14,7 @@ parser.add_argument('-i', '--input-file', type=str, required=True, help='Path to
 parser.add_argument('-s', '--start-tree-file', type=str, default=None, help='Path to species tree used as the starting point in the search. If none is provided, will use an additive taxon procedure.')
 parser.add_argument('-x', '--random-start', action='store_true', help='Toggle to start tree search from a random topology instead of the additive taxon procedure.')
 parser.add_argument('-o', '--output-dir', type=str, default='out', help='Path to output dir.')
-parser.add_argument('-r', '--ranger-path', type=str, default='Ranger-DTL-Fast.linux', help='Path to Ranger-DTL-Fast executable.')
+parser.add_argument('-r', '--ranger-path', type=str, default=None, help='Path to Ranger-DTL-Fast executable. Defaults to the platform-compatible executable located in the binaries directory.')
 parser.add_argument('-D', '--dup-cost', type=str, default='2', help='Duplication cost used in Ranger.')
 parser.add_argument('-T', '--transfer-cost', type=str, default='3', help='Transfer cost used in Ranger.')
 parser.add_argument('-L', '--loss-cost', type=str, default='1', help='Loss cost used in Ranger.')
@@ -35,6 +37,22 @@ part_tree_dir = os.path.join(args.output_dir, 'partial_trees')
 if not os.path.isdir(part_tree_dir):
     os.mkdir(part_tree_dir)
 gene_trees_path = os.path.join(temp_dir, f'GENETREES-{os.getpid()}')
+
+if args.ranger_path is None:
+    script_dir_path = Path(os.path.dirname(os.path.realpath(__file__)))
+    parent_dir = script_dir_path.parent.absolute()
+    bin_dir = os.path.join(parent_dir, 'binaries')
+
+    if platform == 'linux':
+        args.ranger_path = os.path.join(bin_dir, 'Ranger-DTL-Fast.linux')
+    elif platform == 'darwin':
+        args.ranger_path = os.path.join(bin_dir, 'Ranger-DTL-Fast.mac')
+    elif platform == 'win32':
+        args.ranger_path = os.path.join(bin_dir, 'Ranger-DTL-Fast.win')
+    else:
+        print('Uknown platform. Please specify the absolute path to the Ranger-DTL executable.')
+
+
 
 
 ranger_args = {

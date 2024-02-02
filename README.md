@@ -27,13 +27,13 @@ conda install numpy
 conda install conda-forge::ete3
 ```
 
-Additionally, PhyloGTP uses the [Ranger-DTL](https://compbio.engr.uconn.edu/software/ranger-dtl/) software package to be installed. For your convenience, executables for Linux, Windows, and Mac machines are already included in the repository in the binaries folder. If you experience an issue with the provided executables, you can download and install Ranger-DTL at the link provided. Note that only the Ranger-DTL-Fast executable under SupplementaryPrograms is required to run PhyloGTP.
+Additionally, PhyloGTP uses the [Ranger-DTL](https://compbio.engr.uconn.edu/software/ranger-dtl/) software package. For your convenience, executables for Linux, Windows, and Mac machines are already included in the repository in the binaries folder. PhyloGTP will automatically choose the platform-appropriate executable, however you must ensure the executables are given correct permissions. To do so, nagivate into the binaries folder and change permissions as follows:
+```
+cd binaries
+chmod u+x *
+```
 
-It is recommended that the Ranger-DTL-Fast binary be added to your `$PATH` variable. For example,
-```
-export PATH=/path/to/PhyloGTP/binaries:$PATH
-```
-You may also wish to add this line to your ~/.bashrc or /.bash_profile configuration file to avoid having to retype this command.
+If you experience an issue with the provided executables, you can download and install Ranger-DTL at the link provided. Note that only the Ranger-DTL-Fast executable under SupplementaryPrograms is required to run PhyloGTP.
 
 ## Input file format
 The one required input file is the file containing the gene trees. Each gene tree must appear on a separate line in the file and should be expressed in Newick format terminated by a semicolon. For each gene tree, every leaf node must be labeled with the name of the species from which that gene was sampled. If desired, the gene name can be appended to the species name separated by an underscore ‘_’ character. The gene tree may contain any number (zero, one, or more) of homologous genes from the same species.
@@ -70,13 +70,13 @@ python phylogtp.py -i ../testdata/genetrees1.nwk -o test/ -u
 
 `-o, --output` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Path to output directory. (Default: out) 
 
-`-s, --start-tree-file` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Path to species tree file used as the starting point in the search. If none is provided, will use an additive taxon procedure. (Default: None)
+`-s, --start-tree-file` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Path to species tree file used as the starting point in the search. If unspecified, will use an additive taxon procedure. (Default: None)
 
 `-x, --random-start` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; If True, will use start tree search from a random topology. Otherwise, will use an additive taxon procedure. (Default: False)
 
 `-u, --unrooted` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Toggle to treat gene trees as unrooted. Will do so by default if the input gene trees have no root. (Default: False) 
 
-`-r, --ranger-path` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Path to Ranger-DTL-Fast executable. (Default: Ranger-DTL-Fast.linux). 
+`-r, --ranger-path` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Path to Ranger-DTL-Fast executable. If unspecified, will use the executable located in the binaries folder based on the user platform automatically. (Default: None). 
 
 `-D, --dup-cost` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Cost of duplication events when computing parsimonious DTL reconciliations. (Default: 2) 
 
