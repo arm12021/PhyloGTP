@@ -1,9 +1,9 @@
 # PhyloGTP
 
 ## **Description**
-PhyloGTP is a microbial phylogenomics tools for estimating a species tree from a set of gene family trees under a duplication transfer loss (DTL) model. PhyloGTP utilizes a local tree search to obtain a tree topology which minimizes the global DTL reconciliation cost with the set of gene trees. The program can easily be run in the command line or using a python interpreter. PhyloGTP can be cited as follows:
+PhyloGTP is a software tool for genome-scale microbial phylogenomics. It takes as input a collection of gene trees and estimates a species tree under a duplication-transfer-loss (DTL) model of gene family evolution. PhyloGTP uses local search heuristics to obtain a species tree topology which minimizes the global DTL reconciliation cost with the collection of input gene trees. The program can easily be run in the command line or using a python interpreter. PhyloGTP can be cited as follows:
 
-<a>Assessing the potential of gene tree parsimony for microbial phylogenomics</a><br>
+<i>Assessing the potential of gene tree parsimony for microbial phylogenomics</i><br>
 Samson Weiner, Yutian Feng, J. Peter Gogartan, and Mukul S. Bansal<br>
 Under review.
 
