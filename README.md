@@ -55,7 +55,7 @@ Users may also provide a starting species tree used to seed the tree search. The
 
 
 ## Example run
-To run PhyloGTP, cd to `scripts` and execute the following command:
+To run PhyloGTP, cd to `main` and execute the following command:
 ```
 python phylogtp.py -i [path-to-input-genetrees.nwk] -o [path-to-output-directory]
 ```
