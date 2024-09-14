@@ -16,7 +16,7 @@ parser.add_argument('-x', '--random-start', action='store_true', help='Toggle to
 parser.add_argument('-o', '--output-dir', type=str, default='out', help='Path to output dir.')
 parser.add_argument('-r', '--ranger-path', type=str, default=None, help='Path to Ranger-DTL-Fast executable. Defaults to the platform-compatible executable located in the binaries directory.')
 parser.add_argument('-D', '--dup-cost', type=str, default='2', help='Duplication cost used in Ranger.')
-parser.add_argument('-T', '--transfer-cost', type=str, default='3', help='Transfer cost used in Ranger.')
+parser.add_argument('-T', '--transfer-cost', type=str, default='4', help='Transfer cost used in Ranger.')
 parser.add_argument('-L', '--loss-cost', type=str, default='1', help='Loss cost used in Ranger.')
 parser.add_argument('-t', '--threshold', type=float, default=0, help='Terminates loop after difference in scores falls below the given threshold.')
 parser.add_argument('-m', '--max-iter', type=int, default=-1, help='Max number of iterations before termination. Runs until convergence by default.')

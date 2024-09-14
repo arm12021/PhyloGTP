@@ -80,7 +80,7 @@ python phylogtp.py -i ../testdata/genetrees1.nwk -o test/ -u
 
 `-D, --dup-cost` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Cost of duplication events when computing parsimonious DTL reconciliations. (Default: 2) 
 
-`-T, --tran-cost` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Cost of transfer events when computing parsimonious DTL reconciliations. (Default: 3) 
+`-T, --tran-cost` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Cost of transfer events when computing parsimonious DTL reconciliations. (Default: 4) 
 
 `-L, --loss-cost` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Cost of loss events when computing parsimonious DTL reconciliations. (Default: 1) 
 
