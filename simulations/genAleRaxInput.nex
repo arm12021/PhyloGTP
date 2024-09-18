@@ -1,0 +1,8 @@
+begin mrbayes;
+    set autoclose=yes nowarn=yes;
+    execute nex_path;
+    startvals tau=usertree;
+    lset nst=1;
+    prset statefreqpr=fixed(equal);
+    mcmc nchains=2 nruns=1 ngen=100000 samplefreq=100 Checkpoint=No Stoprule=No;
+end;
