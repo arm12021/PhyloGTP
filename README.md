@@ -42,7 +42,7 @@ chmod u+x *
 
 If you experience an issue with the provided executables, you can download and install Ranger-DTL at the link provided. Note that only the Ranger-DTL-Fast executable under SupplementaryPrograms is required to run PhyloGTP.
 
-***NEW FEATURE!*** PhyloGTP now allows the use of the [ecceTERA](https://maayanlab.cloud/datasets2tools/landing/tool/ecceTERA) software package in place of Ranger-DTL. This is an optional change, and can be set using the `-ue` or `--use-eccetera` command flags. ecceTERA is an alternative open-source program that implements a generic parsimony reconciliation algorithm, which accounts for gene duplication, loss and transfer (DTL) as well as speciation, involving sampled and unsampled lineages, within undated, fully dated or partially dated species trees. The ecceTERA reconciliation model and algorithm generalize or improve upon most published DTL parsimony algorithms for binary species trees and binary gene trees. Moreover, ecceTERA can estimate accurate species-tree aware gene trees using amalgamation. **Please note** that ecceTERA is currently only bundled with the Linux and Mac binaries, and gene and species trees must have unique leaves to be compatible.
+${\color{red}\textbf{New Feature!}}$ PhyloGTP now allows the use of the [ecceTERA](https://maayanlab.cloud/datasets2tools/landing/tool/ecceTERA) software package in place of Ranger-DTL. This is an optional change, and can be set using the `-ue` or `--use-eccetera` command flags. ecceTERA is an alternative open-source program that implements a generic parsimony reconciliation algorithm, which accounts for gene duplication, loss and transfer (DTL) as well as speciation, involving sampled and unsampled lineages, within undated, fully dated or partially dated species trees. The ecceTERA reconciliation model and algorithm generalize or improve upon most published DTL parsimony algorithms for binary species trees and binary gene trees. Moreover, ecceTERA can estimate accurate species-tree aware gene trees using amalgamation. **Please note** that ecceTERA is currently only bundled with the Linux and Mac binaries, and gene and species trees must have unique leaves to be compatible.
 
 [ecceTERA: comprehensive gene tree-species tree reconciliation using parsimony](https://academic.oup.com/bioinformatics/article/32/13/2056/1743358)\
 Edwin Jacox, Cedric Chauve, Gergely J. Szöllősi, Yann Ponty, Celine Scornavacca\
@@ -106,7 +106,7 @@ python phylogtp.py -i ../testdata/genetrees1.nwk -o test/ -u
 
 `-c, --num-cores` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Number of CPUs to use in parallel. (Default: 1)
 
-`-k, --keep-temp` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ***New!*** Do not delete all temporary files created during runtime. (Default: False)
+`-k, --keep-temp` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Do not delete all temporary files created during runtime. (Default: False)
 
 ### Ranger-DTL specific command line options
 
@@ -114,7 +114,7 @@ python phylogtp.py -i ../testdata/genetrees1.nwk -o test/ -u
 
 `-u, --unrooted` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Toggle to treat gene trees as unrooted. Will do so by default if the input gene trees have no root. (Default: False)
 
-### ***New!*** ecceTERA specific command line options
+### ${\color{red}\textbf{New!}}$ ecceTERA specific command line options
 
 `-e, --eccetera-path` &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Path to ecceTERA executable. If unspecified, will use the executable located in the binaries folder based on the user platform automatically. (Default: None).
 
