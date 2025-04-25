@@ -323,9 +323,20 @@ def callRangerWeighted(ranger_args, temp_path, weights):
 
 # Takes ranger_args, species tree, and gene trees path as input and returns the total reconciliation cost
 def getTotalRecCost(
-    dtl_args, spec_tree, gene_trees_path, weights, temp_dir, keep_temp=False
+    dtl_args,
+    spec_tree,
+    gene_trees_path,
+    gene_family_trees_path,
+    weights,
+    temp_dir,
+    keep_temp=False,
 ):
     temp_path = os.path.join(temp_dir, f"TEMPFILE-{os.getpid()}")
+
+    gene_family_indices = []
+    with open(gene_family_trees_path, "r") as f:
+        for line in f:
+            gene_family_indices.append(int(line.strip()))
 
     # Write species tree to temp file
     with open(temp_path, "w+") as f1, open(gene_trees_path, "r") as f2:
@@ -336,18 +347,49 @@ def getTotalRecCost(
         if not dtl_args["use_ecceTERA"]:
             shutil.copyfileobj(f2, f1)
 
-    if dtl_args["use_ecceTERA"]:
-        if len(weights) == 0:
-            score = callEcceTERA(dtl_args, temp_path, gene_trees_path)
-        else:
-            score = callEcceTERAWeighted(
-                dtl_args, temp_path, gene_trees_path, weights
-            )
+    if len(gene_family_indices) and dtl_args["use_ecceTERA"]:
+        temp_fam_path = os.path.join(temp_dir, f"TEMPFAMILYFILE-{os.getpid()}")
+        gene_trees_all = []
+        score = 0
+        with open(gene_trees_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if len(line) > 0:
+                    if line[0] == "[":
+                        end = line.index("]")
+                        w = float(line[1:end])
+                        weights.append(w)
+                        gene_trees_all.append(line[end + 1 :])
+                    else:
+                        gene_trees_all.append(line)
+
+        tree_i = 0
+        for family_i in gene_family_indices:
+            family_trees = gene_trees_all[tree_i : tree_i + family_i]
+            tree_i += family_i
+
+            # Write family trees to temp file
+            with open(temp_fam_path, "w+") as f:
+                for tree in family_trees:
+                    f.write(f"{tree}\n")
+
+            # Call ecceTERA with family trees
+            score += callEcceTERA(dtl_args, temp_path, temp_fam_path)
+
+        return score
     else:
-        if len(weights) == 0:
-            score = callRanger(dtl_args, temp_path)
+        if dtl_args["use_ecceTERA"]:
+            if len(weights) == 0:
+                score = callEcceTERA(dtl_args, temp_path, gene_trees_path)
+            else:
+                score = callEcceTERAWeighted(
+                    dtl_args, temp_path, gene_trees_path, weights
+                )
         else:
-            score = callRangerWeighted(dtl_args, temp_path, weights)
+            if len(weights) == 0:
+                score = callRanger(dtl_args, temp_path)
+            else:
+                score = callRangerWeighted(dtl_args, temp_path, weights)
 
     if not keep_temp:
         os.remove(temp_path)
@@ -409,6 +451,7 @@ def SPRsearch(
     start_score,
     dtl_args,
     gene_trees_path,
+    gene_family_trees_path,
     num_cores,
     weights,
     temp_dir,
@@ -424,6 +467,7 @@ def SPRsearch(
             dtl_args,
             spec_tree,
             gene_trees_path,
+            gene_family_trees_path,
             weights,
             temp_dir,
             keep_temp,
@@ -439,6 +483,7 @@ def SPRsearch(
                 dtl_args,
                 spec_tree,
                 gene_trees_path,
+                gene_family_trees_path,
                 weights,
                 temp_dir,
                 keep_temp,
@@ -460,6 +505,7 @@ def greedySPRsearch(
     start_score,
     dtl_args,
     gene_trees_path,
+    gene_family_trees_path,
     num_cores,
     weights,
     temp_dir,
@@ -472,6 +518,7 @@ def greedySPRsearch(
             dtl_args,
             spec_tree,
             gene_trees_path,
+            gene_family_trees_path,
             weights,
             temp_dir,
             keep_temp,
@@ -487,8 +534,13 @@ def greedySPRsearch(
         if len(node) < n - 1
     ]
     np.random.shuffle(subtrees)
+    it = 1
     for p_node_name in subtrees:
         neighborhood = genRegraftNeighborhood(template, p_node_name)
+        print(
+            f"Regrafting node: {it}/{len(subtrees)} with {len(neighborhood)} neighbors"
+        )
+        it += 1
 
         if num_cores > 1:
             p = multiprocessing.Pool(processes=num_cores)
@@ -499,6 +551,7 @@ def greedySPRsearch(
                     dtl_args,
                     spec_tree,
                     gene_trees_path,
+                    gene_family_trees_path,
                     weights,
                     temp_dir,
                     keep_temp,

@@ -103,11 +103,11 @@ parser.add_argument(
     help="Do not remove temporary files when finished.",
 )
 
-
 parser.add_argument(
     "-ue",
     "--use-ecceTERA",
     action="store_true",
+    default=False,
     help="Use ecceTERA for reconciliation instead of RANGER-DTL.",
 )
 parser.add_argument(
@@ -139,6 +139,9 @@ part_tree_dir = os.path.join(args.output_dir, "partial_trees")
 if not os.path.isdir(part_tree_dir):
     os.mkdir(part_tree_dir)
 gene_trees_path = os.path.join(temp_dir, f"GENETREES-{os.getpid()}")
+gene_family_trees_path = os.path.join(
+    temp_dir, f"GENEFAMILYTREES-{os.getpid()}"
+)
 
 if args.ranger_path is None:
     script_dir_path = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -180,7 +183,15 @@ eccetera_args = {
 
 
 def check_args(args):
-    if not os.path.isfile(args.input_file):
+    if "," in args.input_file:
+        multi_gene_family = True
+        files = args.input_file.split(",")
+        for input_file in files:
+            input_file = input_file.strip()
+            if not os.path.isfile(input_file):
+                print(f"Specified gene tree file {input_file} does not exist.")
+                return False
+    elif not os.path.isfile(args.input_file):
         print("Specified gene tree file does not exist.")
         return False
     if args.start_tree_file:
@@ -202,10 +213,22 @@ def check_args(args):
 
 
 def main(args):
+    gene_family_files = []
+    multi_gene_family = False
+
     start_time = time.time()
     f = open(log_file_path, "w+")
     f.close()
     out_handle = log_file_path
+
+    if "," in args.input_file:
+        multi_gene_family = True
+        args.amalgamate = True
+        eccetera_args["amalgamate"] = 1
+        files = args.input_file.split(",")
+        for input_file in files:
+            input_file = input_file.strip()
+            gene_family_files.append(input_file)
 
     if args.use_ecceTERA:
         print("Using ecceTERA for reconciliation.\n")
@@ -219,25 +242,47 @@ def main(args):
     # Read in gene trees. Each line should be a separate gene tree.
     # If using weights, prepend each tree string with [w], where w is the weight.
     gene_trees = []
+    gene_family_trees = []
     weights = []
-    with open(args.input_file) as f:
-        for line in f:
-            line = line.strip()
-            if len(line) > 0:
-                if line[0] == "[":
-                    end = line.index("]")
-                    w = float(line[1:end])
-                    weights.append(w)
-                    gene_trees.append(line[end + 1 :])
-                else:
-                    gene_trees.append(line)
+    gene_family_weights = []
+    if multi_gene_family:
+        print("Multiple gene family files detected.")
+        for file in gene_family_files:
+            gene_trees_temp = []
+            weights_temp = []
+            with open(file) as f:
+                for line in f:
+                    line = line.strip()
+                    if len(line) > 0:
+                        if line[0] == "[":
+                            end = line.index("]")
+                            w = float(line[1:end])
+                            weights_temp.append(w)
+                            gene_trees_temp.append(line[end + 1 :])
+                            weights.append(w)
+                            gene_trees.append(line[end + 1 :])
+                        else:
+                            gene_trees_temp.append(line)
+                            gene_trees.append(line)
+            gene_family_trees.append(gene_trees_temp.copy())
+            gene_family_weights.append(weights_temp.copy())
+    else:
+        with open(args.input_file) as f:
+            for line in f:
+                line = line.strip()
+                if len(line) > 0:
+                    if line[0] == "[":
+                        end = line.index("]")
+                        w = float(line[1:end])
+                        weights.append(w)
+                        gene_trees.append(line[end + 1 :])
+                    else:
+                        gene_trees.append(line)
+
     if len(weights) > 0 and len(weights) != len(gene_trees):
         print("Must include weight for every tree or no trees.")
         return
 
-    # if args.use_ecceTERA:
-    # Check input gene trees for ecceTERA compatibility
-    # Gene trees must have unique leaf names (no duplicates) and no internal nodes with the same name as a leaf.
     with open(gene_trees_path, "w+") as f:
         for gene_tree_str in gene_trees:
             # Create a MasterTree object for each gene tree and set the node names.
@@ -247,16 +292,6 @@ def main(args):
             # The format is set to 1, which means that the tree is written in Newick format with branch lengths.
             mt = utilities.MasterTree(tree=Tree(gene_tree_str, format=1))
 
-            if args.use_ecceTERA and mt.check_duplicate_leaves():
-                print(
-                    "Gene trees must have unique leaf names to be compatible with ecceTERA."
-                )
-                print(
-                    f"Gene tree {gene_tree_str} has duplicate leaves {mt.duplicate_leaves()}."
-                )
-                print(f"Please fix this and try again.")
-                return
-
             # Remove the leaf name suffixes if they exist.
             # This is necessary for the Ranger-DTL-Fast program to work correctly.
             if not args.use_ecceTERA:
@@ -264,12 +299,30 @@ def main(args):
                     if "_" in leaf.name:
                         leaf.name = leaf.name[: leaf.name.index("_")]
 
+            # Check input gene trees for ecceTERA compatibility
+            # Gene trees must have unique leaf names (no duplicates) and no internal nodes with the same name as a leaf.
+            if args.use_ecceTERA and mt.check_duplicate_leaves():
+                print(
+                    "Gene trees must have unique leaf names to be compatible with ecceTERA."
+                )
+                print(
+                    f"Duplicate leaves {mt.duplicate_leaves()} found in gene tree:\n{gene_tree_str}"
+                )
+                print(f"Please fix this and try again.")
+                mt.print_structure()
+                print("")
+                return
+
             # Write the tree to a file in Newick format with branch lengths.
             # The format is set to 9, which means that the tree is written in Newick format with branch lengths and node names.
             if args.unrooted and not args.use_ecceTERA:
                 f.write(f"[&U]{mt.write(form=9)}\n")
             else:
                 f.write(f"{mt.write(form=9)}\n")
+
+    with open(gene_family_trees_path, "w+") as f:
+        for gene_family in gene_family_trees:
+            f.write(f"{len(gene_family)}\n")
 
     # endregion Input Trees
 
@@ -286,6 +339,7 @@ def main(args):
             dtl_args,
             current_tree.write(),
             gene_trees_path,
+            gene_family_trees_path,
             weights,
             temp_dir,
             args.keep_temp,
@@ -309,6 +363,7 @@ def main(args):
                 ranger_args,
                 current_tree.write(),
                 gene_trees_path,
+                gene_family_trees_path,
                 weights,
                 temp_dir,
                 args.keep_temp,
@@ -316,6 +371,7 @@ def main(args):
         else:
             current_tree, starting_score = start.additive_start_tree(
                 gene_trees_path,
+                gene_family_trees_path,
                 dtl_args,
                 weights,
                 args.unrooted,
@@ -327,6 +383,8 @@ def main(args):
     print(f"Start Tree: {current_tree.write(9)}")
     current_tree.print_structure()
     print("")
+
+    print(f"Current runtime: {time.time() - start_time}")
 
     # endregion Start Tree
 
@@ -356,6 +414,7 @@ def main(args):
                 prev_val,
                 dtl_args,
                 gene_trees_path,
+                gene_family_trees_path,
                 args.num_cores,
                 weights,
                 temp_dir,
@@ -367,6 +426,7 @@ def main(args):
                 prev_val,
                 dtl_args,
                 gene_trees_path,
+                gene_family_trees_path,
                 args.num_cores,
                 weights,
                 temp_dir,
@@ -374,6 +434,7 @@ def main(args):
             )
 
         # Print/log the results and current time
+        print(f"Current runtime: {time.time() - start_time}")
         print(f"  {it:<10}{min_score:<10}{len(optimal_trees)}")
         with open(out_handle, "a+") as f:
             cur_time = time.strftime("%X %x %Z")

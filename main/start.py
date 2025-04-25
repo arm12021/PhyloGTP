@@ -93,6 +93,7 @@ def init_start_trees(taxa):
 
 def additive_start_tree(
     gene_trees_path,
+    gene_family_trees_path,
     dtl_args,
     weights,
     unrooted,
@@ -159,6 +160,7 @@ def additive_start_tree(
                 dtl_args,
                 spec_tree,
                 temp_gene_trees_path,
+                gene_family_trees_path,
                 cur_weights,
                 temp_dir,
                 keep_temp,
@@ -212,6 +214,10 @@ def additive_start_tree(
             neighborhood.append(mt.write())
             mt.prune(p_node)
 
+        print(
+            f"Adding {len(taxa)} taxa to tree with {len(neighborhood)} neighbors"
+        )
+
         if num_cores > 1:
             p = utilities.multiprocessing.Pool(processes=num_cores)
             scores = p.starmap(
@@ -220,6 +226,7 @@ def additive_start_tree(
                     repeat(dtl_args),
                     neighborhood,
                     repeat(temp_gene_trees_path),
+                    repeat(gene_family_trees_path),
                     repeat(cur_weights),
                     repeat(temp_dir),
                     keep_temp,
@@ -231,6 +238,7 @@ def additive_start_tree(
                     dtl_args,
                     spec_tree,
                     temp_gene_trees_path,
+                    gene_family_trees_path,
                     cur_weights,
                     temp_dir,
                     keep_temp,
