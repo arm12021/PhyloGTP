@@ -148,6 +148,7 @@ class MasterTree:
 
 
 def callEcceTERA(ecce_args, temp_path_species, temp_path_genes):
+    global total_eccetera_calls
     # Make system call to ecceTERA
     d_cost = ecce_args["D"]
     t_cost = ecce_args["T"]
@@ -185,6 +186,7 @@ def callEcceTERA(ecce_args, temp_path_species, temp_path_genes):
     # print(raw_out)
     # Expected output: "Cost of a most parsimonious reconciliation: 1"
     ran_out = raw_out.stdout.strip()
+    total_eccetera_calls += 1
 
     ran_out = raw_out.stdout.strip().split("\n")
     costs = []
@@ -200,6 +202,7 @@ def callEcceTERA(ecce_args, temp_path_species, temp_path_genes):
 def callEcceTERAWeighted(
     ecce_args, temp_path_species, temp_path_genes, weights
 ):
+    global total_eccetera_calls
     # Make system call to ecceTERA
     d_cost = ecce_args["D"]
     t_cost = ecce_args["T"]
@@ -236,6 +239,7 @@ def callEcceTERAWeighted(
 
     # print(raw_out)
     ran_out = raw_out.stdout.strip().split("\n")
+    total_eccetera_calls += 1
 
     costs = []
     for line in ran_out:
@@ -253,6 +257,7 @@ def callEcceTERAWeighted(
 
 # Makes system call to ranger and returns DTL score
 def callRanger(ranger_args, temp_path):
+    global total_ranger_calls
     # Make system call to ranger
     params = [
         ranger_args["path"],
@@ -278,6 +283,7 @@ def callRanger(ranger_args, temp_path):
     # print(raw_out)
     # raw_out = subprocess.run(params, check=True, stdout=subprocess.PIPE, universal_newlines=True)
     ran_out = raw_out.stdout.strip()
+    total_ranger_calls += 1
     # print(ran_out)
     # Expected output: "Total reconciliation cost: 12 (Duplications: 0, Transfers: 3, Losses: 0)"
     rec_cost = int(ran_out[ran_out.index(":") + 2 : ran_out.index("(") - 1])
@@ -285,6 +291,7 @@ def callRanger(ranger_args, temp_path):
 
 
 def callRangerWeighted(ranger_args, temp_path, weights):
+    global total_ranger_calls
     # Make system call to ranger
     params = [
         ranger_args["path"],
@@ -307,6 +314,7 @@ def callRangerWeighted(ranger_args, temp_path, weights):
     )
     # print(raw_out)
     ran_out = raw_out.stdout.strip().split("\n")
+    total_ranger_calls += 1
     costs = []
     for line in ran_out:
         if "The minimum reconciliation cost" in line:
@@ -320,6 +328,16 @@ def callRangerWeighted(ranger_args, temp_path, weights):
 
 # region getTotalRecCost
 
+reconciliation_cache = {}
+eccetera_time = 0.0
+ranger_time = 0.0
+read_time_gene = 0.0
+read_time_fam = 0.0
+write_time_spec = 0.0
+write_time_gene = 0.0
+total_eccetera_calls = 0
+total_ranger_calls = 0
+
 
 # Takes ranger_args, species tree, and gene trees path as input and returns the total reconciliation cost
 def getTotalRecCost(
@@ -331,14 +349,38 @@ def getTotalRecCost(
     temp_dir,
     keep_temp=False,
 ):
+    global eccetera_time
+    global ranger_time
+    global read_time_gene
+    global read_time_fam
+    global write_time_spec
+    global write_time_gene
+	
+    # Create a cache key from inputs
+    cache_key = (
+        spec_tree,
+        hash(gene_trees_path),
+        tuple(weights) if weights else None,
+    )
+
+    # Check cache first
+    if cache_key in reconciliation_cache:
+        print(f"Cache hit for {cache_key}")
+        return reconciliation_cache[cache_key]
+
     temp_path = os.path.join(temp_dir, f"TEMPFILE-{os.getpid()}")
+    temp_fam_path = os.path.join(temp_dir, f"TEMPFAMILYFILE-{os.getpid()}")
 
     gene_family_indices = []
-    with open(gene_family_trees_path, "r") as f:
-        for line in f:
-            gene_family_indices.append(int(line.strip()))
+    start_time = time.time()
+    if dtl_args["use_ecceTERA"]:
+        with open(gene_family_trees_path, "r") as f:
+            for line in f:
+                gene_family_indices.append(int(line.strip()))
+    read_time_fam += time.time() - start_time
 
     # Write species tree to temp file
+    start_time = time.time()
     with open(temp_path, "w+") as f1, open(gene_trees_path, "r") as f2:
         f1.write(f"{spec_tree}\n")
         # Then copy contents of gene trees file ONLY if ecceTERA is NOT used
@@ -346,11 +388,12 @@ def getTotalRecCost(
         # and ecceTERA needs them in separate files
         if not dtl_args["use_ecceTERA"]:
             shutil.copyfileobj(f2, f1)
+    write_time_spec += time.time() - start_time
 
     if len(gene_family_indices) and dtl_args["use_ecceTERA"]:
-        temp_fam_path = os.path.join(temp_dir, f"TEMPFAMILYFILE-{os.getpid()}")
         gene_trees_all = []
         score = 0
+        start_time = time.time()
         with open(gene_trees_path, "r") as f:
             for line in f:
                 line = line.strip()
@@ -362,20 +405,36 @@ def getTotalRecCost(
                         gene_trees_all.append(line[end + 1 :])
                     else:
                         gene_trees_all.append(line)
+        read_time_gene += time.time() - start_time
 
         tree_i = 0
         for family_i in gene_family_indices:
             family_trees = gene_trees_all[tree_i : tree_i + family_i]
-            tree_i += family_i
 
             # Write family trees to temp file
+            trees = False
+            start_time = time.time()
             with open(temp_fam_path, "w+") as f:
                 for tree in family_trees:
-                    f.write(f"{tree}\n")
+                    if tree != ";":
+                        f.write(f"{tree}\n")
+                        trees = True
+            write_time_gene += time.time() - start_time
 
             # Call ecceTERA with family trees
-            score += callEcceTERA(dtl_args, temp_path, temp_fam_path)
+            if trees:
+                start_time = time.time()
+                score += callEcceTERA(dtl_args, temp_path, temp_fam_path)
+                eccetera_time += time.time() - start_time
+            else:
+                print(
+                    f"Skipping family {tree_i}:{tree_i + family_i} with no trees. Score: {score}"
+                )
+                score += 0
+            tree_i += family_i
 
+        # print(f"Score: {score}")
+        reconciliation_cache[cache_key] = score
         return score
     else:
         if dtl_args["use_ecceTERA"]:
@@ -386,14 +445,20 @@ def getTotalRecCost(
                     dtl_args, temp_path, gene_trees_path, weights
                 )
         else:
+            start_time = time.time()
             if len(weights) == 0:
                 score = callRanger(dtl_args, temp_path)
             else:
                 score = callRangerWeighted(dtl_args, temp_path, weights)
+            ranger_time += time.time() - start_time
 
     if not keep_temp:
-        os.remove(temp_path)
+        if os.path.exists(temp_fam_path):
+            os.remove(temp_fam_path)
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
     # print(f"Worker: {os.getpid()}, {score}")
+    reconciliation_cache[cache_key] = score
     return score
 
 

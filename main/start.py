@@ -5,6 +5,7 @@ import os
 import numpy as np
 from itertools import repeat
 import utilities
+import time
 
 # endregion Imports
 
@@ -55,6 +56,8 @@ def get_pruned_genetrees(keep, gene_tree_str, weights):
             pruned_gts.append(t.write(format=9))
             if weights:
                 cur_weights.append(weights[i])
+        else:
+            pruned_gts.append(";")
     return pruned_gts, cur_weights
 
 
@@ -102,6 +105,9 @@ def additive_start_tree(
     keep_temp=False,
 ):
     # region Init Start Tree
+
+    getRecCost_time = 0
+    localWrite_time = 0
 
     # If unrooted, get gene trees without [&U] prefix
     # [&U](((a,b),c),((d,a),((e,f),e))) -> (((a,b),c),((d,a),((e,f),e)))
@@ -190,6 +196,8 @@ def additive_start_tree(
 
     # endregion First Start Tree
 
+    print(f"Starting additive tree search with {len(taxa)} taxa")
+
     # region Start Tree Loop
 
     while taxa:
@@ -198,12 +206,15 @@ def additive_start_tree(
         pruned_gts, cur_weights = get_pruned_genetrees(
             keep, gene_tree_str, weights
         )
+
+        start_time = time.time()
         temp_gene_trees_path = write_gene_trees(
             pruned_gts,
             temp_dir,
             unrooted,
             use_ecceTERA=dtl_args["use_ecceTERA"],
         )
+        localWrite_time += time.time() - start_time
 
         neighborhood = []
         order = [node for node in mt.tree.traverse()]
@@ -218,6 +229,7 @@ def additive_start_tree(
             f"Adding {len(taxa)} taxa to tree with {len(neighborhood)} neighbors"
         )
 
+        start_time = time.time()
         if num_cores > 1:
             p = utilities.multiprocessing.Pool(processes=num_cores)
             scores = p.starmap(
@@ -229,7 +241,7 @@ def additive_start_tree(
                     repeat(gene_family_trees_path),
                     repeat(cur_weights),
                     repeat(temp_dir),
-                    keep_temp,
+                    repeat(keep_temp),
                 ),
             )
         else:
@@ -245,6 +257,22 @@ def additive_start_tree(
                 )
                 for spec_tree in neighborhood
             ]
+        getRecCost_time += time.time() - start_time
+
+        # print(f"localWrite Time: {localWrite_time}")
+        print(f"getRecCost Time: {getRecCost_time}")
+        if dtl_args["use_ecceTERA"]:
+            print(f"ecceTERA Time: {utilities.eccetera_time}")
+            print(f"Read Time Fam: {utilities.read_time_fam}")
+            print(f"Read Time Genes: {utilities.read_time_gene}")
+            print(f"Write Time Species: {utilities.write_time_spec}")
+            print(f"Write Time Genes: {utilities.write_time_gene}")
+            print(f"Total ecceTERA calls: {utilities.total_eccetera_calls}")
+        else:
+            print(f"RANGER-DTL Time: {utilities.ranger_time}")
+            print(f"Write Time Species: {utilities.write_time_spec}")
+            print(f"Total RANGER-DTL calls: {utilities.total_ranger_calls}")
+        print(f"")
 
         min_score = min(scores)
         optimal_trees = [

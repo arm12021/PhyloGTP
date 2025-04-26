@@ -473,12 +473,14 @@ def main(args):
     print("")
     current_tree.save(os.path.join(args.output_dir, "final_tree.nwk"))
 
-    if not args.keep_temp:
-        shutil.rmtree(temp_dir)
     end_time = time.time() - start_time
     print(f"Total runtime: {end_time}")
     with open(out_handle, "a+") as f:
         f.write(f"\nTotal runtime: {end_time}")
+
+    if not args.keep_temp:
+        # print("Deleting temp dir.")
+        shutil.rmtree(temp_dir)
 
     # endregion Final Tree
 
