@@ -293,11 +293,9 @@ def main(args):
             mt = utilities.MasterTree(tree=Tree(gene_tree_str, format=1))
 
             # Remove the leaf name suffixes if they exist.
-            # This is necessary for the Ranger-DTL-Fast program to work correctly.
-            if not args.use_ecceTERA:
-                for leaf in mt.tree:
-                    if "_" in leaf.name:
-                        leaf.name = leaf.name[: leaf.name.index("_")]
+            for leaf in mt.tree:
+                if "_" in leaf.name:
+                    leaf.name = leaf.name[: leaf.name.index("_")]
 
             # Check input gene trees for ecceTERA compatibility
             # Gene trees must have unique leaf names (no duplicates) and no internal nodes with the same name as a leaf.

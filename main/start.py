@@ -17,11 +17,6 @@ def get_taxa_freqs(gene_tree_str):
 
     taxa = {}
     for gt in gene_trees:
-        # Remove the leaf names suffix from each leaf
-        for leaf in gt:
-            if "_" in leaf.name:
-                leaf.name = leaf.name[: leaf.name.index("_")]
-
         added = []
         for leaf in gt:
             s = leaf.name
@@ -43,14 +38,7 @@ def get_pruned_genetrees(keep, gene_tree_str, weights):
     for i, gts in enumerate(gene_tree_str):
         t = Tree(gts, format=1)
         # Find leaves whose base names (before underscore) match the keep list
-        common = []
-        for leaf in t:
-            leaf_base_name = (
-                leaf.name.split("_")[0] if "_" in leaf.name else leaf.name
-            )
-            if leaf_base_name in keep:
-                common.append(leaf)
-        # common = [l for l in t if l.name in keep]
+        common = [l for l in t if l.name in keep]
         if len(common) >= 3:
             t.prune(common)
             pruned_gts.append(t.write(format=9))
@@ -261,17 +249,6 @@ def additive_start_tree(
 
         # print(f"localWrite Time: {localWrite_time}")
         print(f"getRecCost Time: {getRecCost_time}")
-        if dtl_args["use_ecceTERA"]:
-            print(f"ecceTERA Time: {utilities.eccetera_time}")
-            print(f"Read Time Fam: {utilities.read_time_fam}")
-            print(f"Read Time Genes: {utilities.read_time_gene}")
-            print(f"Write Time Species: {utilities.write_time_spec}")
-            print(f"Write Time Genes: {utilities.write_time_gene}")
-            print(f"Total ecceTERA calls: {utilities.total_eccetera_calls}")
-        else:
-            print(f"RANGER-DTL Time: {utilities.ranger_time}")
-            print(f"Write Time Species: {utilities.write_time_spec}")
-            print(f"Total RANGER-DTL calls: {utilities.total_ranger_calls}")
         print(f"")
 
         min_score = min(scores)
