@@ -247,7 +247,6 @@ def additive_start_tree(
             ]
         getRecCost_time += time.time() - start_time
 
-        # print(f"localWrite Time: {localWrite_time}")
         print(f"getRecCost Time: {getRecCost_time}")
         print(f"")
 

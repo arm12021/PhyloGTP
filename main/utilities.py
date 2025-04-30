@@ -328,7 +328,6 @@ def callRangerWeighted(ranger_args, temp_path, weights):
 
 # region getTotalRecCost
 
-reconciliation_cache = {}
 eccetera_time = 0.0
 ranger_time = 0.0
 read_time_gene = 0.0
@@ -355,25 +354,15 @@ def getTotalRecCost(
     global read_time_fam
     global write_time_spec
     global write_time_gene
-	
-    # Create a cache key from inputs
-    cache_key = (
-        spec_tree,
-        hash(gene_trees_path),
-        tuple(weights) if weights else None,
-    )
-
-    # Check cache first
-    if cache_key in reconciliation_cache:
-        print(f"Cache hit for {cache_key}")
-        return reconciliation_cache[cache_key]
 
     temp_path = os.path.join(temp_dir, f"TEMPFILE-{os.getpid()}")
     temp_fam_path = os.path.join(temp_dir, f"TEMPFAMILYFILE-{os.getpid()}")
 
     gene_family_indices = []
     start_time = time.time()
-    if dtl_args["use_ecceTERA"]:
+    # Read gene family lengths from file
+    # This is only needed if ecceTERA AND amalgamation is used
+    if dtl_args["use_ecceTERA"] and dtl_args["amalgamate"]:
         with open(gene_family_trees_path, "r") as f:
             for line in f:
                 gene_family_indices.append(int(line.strip()))
@@ -390,10 +379,15 @@ def getTotalRecCost(
             shutil.copyfileobj(f2, f1)
     write_time_spec += time.time() - start_time
 
-    if len(gene_family_indices) and dtl_args["use_ecceTERA"]:
+    if (
+        dtl_args["use_ecceTERA"]
+        and dtl_args["amalgamate"]
+        and len(gene_family_indices)
+    ):
         gene_trees_all = []
         score = 0
         start_time = time.time()
+        # Read ALL gene trees from file
         with open(gene_trees_path, "r") as f:
             for line in f:
                 line = line.strip()
@@ -411,9 +405,9 @@ def getTotalRecCost(
         for family_i in gene_family_indices:
             family_trees = gene_trees_all[tree_i : tree_i + family_i]
 
-            # Write family trees to temp file
             trees = False
             start_time = time.time()
+            # Write ONLY the gene trees in the current family to temp file
             with open(temp_fam_path, "w+") as f:
                 for tree in family_trees:
                     if tree != ";":
@@ -421,7 +415,7 @@ def getTotalRecCost(
                         trees = True
             write_time_gene += time.time() - start_time
 
-            # Call ecceTERA with family trees
+            # Call ecceTERA with ONLY this family of gene trees
             if trees:
                 start_time = time.time()
                 score += callEcceTERA(dtl_args, temp_path, temp_fam_path)
@@ -434,16 +428,17 @@ def getTotalRecCost(
             tree_i += family_i
 
         # print(f"Score: {score}")
-        reconciliation_cache[cache_key] = score
         return score
     else:
         if dtl_args["use_ecceTERA"]:
+            start_time = time.time()
             if len(weights) == 0:
                 score = callEcceTERA(dtl_args, temp_path, gene_trees_path)
             else:
                 score = callEcceTERAWeighted(
                     dtl_args, temp_path, gene_trees_path, weights
                 )
+            eccetera_time += time.time() - start_time
         else:
             start_time = time.time()
             if len(weights) == 0:
@@ -458,7 +453,6 @@ def getTotalRecCost(
         if os.path.exists(temp_path):
             os.remove(temp_path)
     # print(f"Worker: {os.getpid()}, {score}")
-    reconciliation_cache[cache_key] = score
     return score
 
 
@@ -576,6 +570,7 @@ def greedySPRsearch(
     temp_dir,
     keep_temp=False,
 ):
+    getRecCost_time = 0
     global getTotalRecCost_helper
 
     def getTotalRecCost_helper(spec_tree):
@@ -607,6 +602,7 @@ def greedySPRsearch(
         )
         it += 1
 
+        start_time = time.time()
         if num_cores > 1:
             p = multiprocessing.Pool(processes=num_cores)
             scores = p.map(getTotalRecCost_helper, neighborhood)
@@ -623,6 +619,10 @@ def greedySPRsearch(
                 )
                 for spec_tree in neighborhood
             ]
+        getRecCost_time += time.time() - start_time
+
+        print(f"getRecCost Time: {getRecCost_time}")
+        print(f"")
 
         min_score = min(scores)
         optimal_trees = [

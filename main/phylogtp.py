@@ -223,8 +223,6 @@ def main(args):
 
     if "," in args.input_file:
         multi_gene_family = True
-        args.amalgamate = True
-        eccetera_args["amalgamate"] = 1
         files = args.input_file.split(",")
         for input_file in files:
             input_file = input_file.strip()
@@ -318,6 +316,7 @@ def main(args):
             else:
                 f.write(f"{mt.write(form=9)}\n")
 
+    # Write the length of each family of gene trees to a file.
     with open(gene_family_trees_path, "w+") as f:
         for gene_family in gene_family_trees:
             f.write(f"{len(gene_family)}\n")
