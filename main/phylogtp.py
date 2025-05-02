@@ -93,6 +93,7 @@ parser.add_argument(
     "-u",
     "--unrooted",
     action="store_true",
+    default=False,
     help="Input gene trees are unrooted.",
 )
 parser.add_argument(
@@ -102,7 +103,6 @@ parser.add_argument(
     default=False,
     help="Do not remove temporary files when finished.",
 )
-
 parser.add_argument(
     "-ue",
     "--use-ecceTERA",
@@ -121,7 +121,15 @@ parser.add_argument(
     "-a",
     "--amalgamate",
     action="store_true",
+    default=False,
     help="Amalgamate the given set of gene trees.",
+)
+parser.add_argument(
+    "-gt",
+    "--ground-truth-file",
+    type=str,
+    help="Path to input file containing the ground truth species tree for comparison. \
+        If provided, the program will compare the final tree to the ground truth tree and print the results.",
 )
 
 args = parser.parse_args()
@@ -168,6 +176,7 @@ ranger_args = {
     "D": args.dup_cost,
     "T": args.transfer_cost,
     "L": args.loss_cost,
+    "amalgamate": int(args.amalgamate),
     "use_ecceTERA": int(args.use_ecceTERA),
 }
 
@@ -204,6 +213,10 @@ def check_args(args):
     if not os.path.isfile(args.eccetera_path) and args.use_ecceTERA:
         print("ecceTERA executable file not found.")
         return False
+    if args.ground_truth_file:
+        if not os.path.isfile(args.ground_truth_file):
+            print("Specified ground truth species tree file does not exist.")
+            return False
     return True
 
 
@@ -220,6 +233,7 @@ def main(args):
     f = open(log_file_path, "w+")
     f.close()
     out_handle = log_file_path
+    print(f"Args: {args}")
 
     if "," in args.input_file:
         multi_gene_family = True
@@ -244,7 +258,7 @@ def main(args):
     weights = []
     gene_family_weights = []
     if multi_gene_family:
-        print("Multiple gene family files detected.")
+        print("Multiple gene files detected.")
         for file in gene_family_files:
             gene_trees_temp = []
             weights_temp = []
@@ -258,13 +272,18 @@ def main(args):
                             weights_temp.append(w)
                             gene_trees_temp.append(line[end + 1 :])
                             weights.append(w)
-                            gene_trees.append(line[end + 1 :])
+                            gene_trees.append(
+                                start.swap_around_underscore(line[end + 1 :])
+                            )
                         else:
                             gene_trees_temp.append(line)
-                            gene_trees.append(line)
+                            gene_trees.append(
+                                start.swap_around_underscore(line)
+                            )
             gene_family_trees.append(gene_trees_temp.copy())
             gene_family_weights.append(weights_temp.copy())
     else:
+        print("Single gene family file detected.")
         with open(args.input_file) as f:
             for line in f:
                 line = line.strip()
@@ -273,9 +292,11 @@ def main(args):
                         end = line.index("]")
                         w = float(line[1:end])
                         weights.append(w)
-                        gene_trees.append(line[end + 1 :])
+                        gene_trees.append(
+                            start.swap_around_underscore(line[end + 1 :])
+                        )
                     else:
-                        gene_trees.append(line)
+                        gene_trees.append(start.swap_around_underscore(line))
 
     if len(weights) > 0 and len(weights) != len(gene_trees):
         print("Must include weight for every tree or no trees.")
@@ -289,11 +310,6 @@ def main(args):
             # The MasterTree object is then written to a file in Newick format.
             # The format is set to 1, which means that the tree is written in Newick format with branch lengths.
             mt = utilities.MasterTree(tree=Tree(gene_tree_str, format=1))
-
-            # Remove the leaf name suffixes if they exist.
-            for leaf in mt.tree:
-                if "_" in leaf.name:
-                    leaf.name = leaf.name[: leaf.name.index("_")]
 
             # Check input gene trees for ecceTERA compatibility
             # Gene trees must have unique leaf names (no duplicates) and no internal nodes with the same name as a leaf.
@@ -381,7 +397,7 @@ def main(args):
     current_tree.print_structure()
     print("")
 
-    print(f"Current runtime: {time.time() - start_time}")
+    print(f"Current runtime: {time.time() - start_time}\n")
 
     # endregion Start Tree
 
@@ -431,7 +447,7 @@ def main(args):
             )
 
         # Print/log the results and current time
-        print(f"Current runtime: {time.time() - start_time}")
+        print(f"Current runtime: {time.time() - start_time}\n")
         print(f"  {it:<10}{min_score:<10}{len(optimal_trees)}")
         with open(out_handle, "a+") as f:
             cur_time = time.strftime("%X %x %Z")
@@ -465,19 +481,57 @@ def main(args):
 
     # region Final Tree
 
+    print(f"\nFinal tree: {current_tree.write(9)}")
     current_tree.print_newick()
     current_tree.print_structure()
     print("")
     current_tree.save(os.path.join(args.output_dir, "final_tree.nwk"))
 
+    try:
+        if not args.keep_temp and os.path.exists(temp_dir):
+            # print("Deleting temp dir.")
+            shutil.rmtree(temp_dir)
+    except Exception as e:
+        print(f"Error removing temp directory!")
+        print(f"{e}\n")
+
+    if args.ground_truth_file:
+        try:
+            # Compare the final tree to the ground truth tree
+            print("\nComparing final tree to ground truth tree...\n")
+
+            # Read in the ground truth tree and compare it to the final tree
+            with open(args.ground_truth_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if len(line) > 0:
+                        ground_truth_tree = Tree(
+                            line.replace("H", ""), format=1
+                        )
+                        break
+
+            final_tree = Tree(current_tree.write(), format=1)
+            result = ground_truth_tree.compare(
+                final_tree, unrooted=args.unrooted
+            )
+
+            print(f"True tree: {ground_truth_tree.write(format=9)}")
+            print(f"Final tree: {final_tree.write(format=9)}\n")
+
+            print("RF: ", result["rf"])
+            print("Max RF: ", result["max_rf"])
+            print("Norm RF: ", result["norm_rf"])
+
+            pcnt_acc = (1 - result["norm_rf"]) * 100
+            print(f"\nPercent Accuracy: {pcnt_acc:.2f} %\n")
+        except Exception as e:
+            print(f"Error comparing to the ground truth species tree!")
+            print(f"{e}\n")
+
     end_time = time.time() - start_time
     print(f"Total runtime: {end_time}")
     with open(out_handle, "a+") as f:
         f.write(f"\nTotal runtime: {end_time}")
-
-    if not args.keep_temp:
-        # print("Deleting temp dir.")
-        shutil.rmtree(temp_dir)
 
     # endregion Final Tree
 

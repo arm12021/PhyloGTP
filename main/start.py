@@ -12,11 +12,81 @@ import time
 # region Helper Functions
 
 
+def swap_around_underscore(input_string):
+    """
+    Takes a string like a Newick tree and swaps the 'G#' part before an underscore
+    with the part after the underscore, while preserving everything else.
+
+    Examples:
+        (G0_0:0.8123311755 -> (0_G0:0.8123311755
+        G133_115:0.1589187930 -> 115_G133:0.1589187930
+
+    Args:
+        input_string (str): The input string to process
+
+    Returns:
+        str: The processed string with parts around underscores swapped
+    """
+    result = ""
+    i = 0
+    while i < len(input_string):
+        # If we find a 'G' followed by numbers and then an underscore
+        if (
+            input_string[i] == "G"
+            and i + 1 < len(input_string)
+            and input_string[i + 1].isdigit()
+        ):
+            # Find the underscore
+            start = i
+            while i < len(input_string) and input_string[i] != "_":
+                i += 1
+
+            if i < len(input_string) and input_string[i] == "_":
+                # Found the underscore, now find the end of the right part
+                underscore_pos = i
+                i += 1  # Move past underscore
+                right_part_start = i
+
+                # Find the end of the right part (usually a colon or parenthesis)
+                while i < len(input_string) and input_string[i] not in (
+                    ":",
+                    ",",
+                    ")",
+                    "(",
+                ):
+                    i += 1
+
+                right_part_end = i
+
+                # Extract parts
+                left_part = input_string[start:underscore_pos]  # G0
+                right_part = input_string[right_part_start:right_part_end]  # 0
+
+                # Add the swapped parts to the result
+                result += right_part + "_" + left_part
+
+                # Don't increment i further as the loop will do it
+            else:
+                # No underscore found, add the 'G' character
+                result += input_string[start]
+                i = start + 1
+        else:
+            # Add the current character to the result
+            result += input_string[i]
+            i += 1
+
+    return result
+
+
 def get_taxa_freqs(gene_tree_str):
     gene_trees = [Tree(s, format=1) for s in gene_tree_str]
 
     taxa = {}
     for gt in gene_trees:
+        # Remove the leaf names suffix from each leaf
+        for leaf in gt:
+            if "_" in leaf.name:
+                leaf.name = leaf.name[: leaf.name.index("_")]
         added = []
         for leaf in gt:
             s = leaf.name
@@ -32,19 +102,29 @@ def get_taxa_freqs(gene_tree_str):
     return taxa
 
 
-def get_pruned_genetrees(keep, gene_tree_str, weights):
+def get_pruned_genetrees(keep, gene_tree_str, weights, amalgamate=False):
     pruned_gts = []
     cur_weights = []
     for i, gts in enumerate(gene_tree_str):
         t = Tree(gts, format=1)
         # Find leaves whose base names (before underscore) match the keep list
-        common = [l for l in t if l.name in keep]
+        common = []
+        for leaf in t:
+            leaf_base_name = (
+                leaf.name.split("_")[0] if "_" in leaf.name else leaf.name
+            )
+            if leaf_base_name in keep:
+                common.append(leaf)
         if len(common) >= 3:
             t.prune(common)
             pruned_gts.append(t.write(format=9))
             if weights:
                 cur_weights.append(weights[i])
-        else:
+        elif amalgamate:
+            # If we are amalgamating, we need to keep the number of trees in the list constant
+            # Because of the way family trees are indexed
+            # So if there are less than 3 leaves, we need to add a dummy tree
+            # Calls to ecceTERA (with amalgamation) will have logic to ignore the dummy tree
             pruned_gts.append(";")
     return pruned_gts, cur_weights
 
@@ -128,7 +208,12 @@ def additive_start_tree(
     # (((a,b),c),((d,a),((e,f),e))) -> (((a,b),c),a)
     # pruned_gts = [ (((a,b),c),a), (((a,b),c),a), (((a,b),c),a) ]
     # Also trim the weights list (if necessary) to only the weights for the pruned gene trees
-    pruned_gts, cur_weights = get_pruned_genetrees(keep, gene_tree_str, weights)
+    pruned_gts, cur_weights = get_pruned_genetrees(
+        keep,
+        gene_tree_str,
+        weights,
+        amalgamate=dtl_args["amalgamate"],
+    )
 
     # endregion Init Start Tree
 
@@ -184,7 +269,7 @@ def additive_start_tree(
 
     # endregion First Start Tree
 
-    print(f"Starting additive tree search with {len(taxa)} taxa")
+    print(f"Starting additive tree search with {len(taxa)} taxa\n")
 
     # region Start Tree Loop
 
@@ -192,7 +277,10 @@ def additive_start_tree(
         s = taxa.pop(0)[0]
         keep.append(s)
         pruned_gts, cur_weights = get_pruned_genetrees(
-            keep, gene_tree_str, weights
+            keep,
+            gene_tree_str,
+            weights,
+            amalgamate=dtl_args["amalgamate"],
         )
 
         start_time = time.time()

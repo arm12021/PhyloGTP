@@ -357,6 +357,7 @@ def getTotalRecCost(
 
     temp_path = os.path.join(temp_dir, f"TEMPFILE-{os.getpid()}")
     temp_fam_path = os.path.join(temp_dir, f"TEMPFAMILYFILE-{os.getpid()}")
+    score = 0
 
     gene_family_indices = []
     start_time = time.time()
@@ -385,7 +386,6 @@ def getTotalRecCost(
         and len(gene_family_indices)
     ):
         gene_trees_all = []
-        score = 0
         start_time = time.time()
         # Read ALL gene trees from file
         with open(gene_trees_path, "r") as f:
@@ -428,7 +428,6 @@ def getTotalRecCost(
             tree_i += family_i
 
         # print(f"Score: {score}")
-        return score
     else:
         if dtl_args["use_ecceTERA"]:
             start_time = time.time()
